@@ -1,0 +1,41 @@
+## Interface: 16001
+## Title: NexosCC
+## Notes: Independent cooldown countdown, nameplate aura and unit-frame timing controls for WoW Forever
+## Author: Afredimorin
+## Version: 1.0.0
+## AllowLoadGameType: camelot
+## SavedVariables: NexosCCDB, NexosCC_ShowGameMenuButton, NexosCC_MidnightComboDB, NexosCC_ForeverComboDB, NexosCC_ForeverDB, NexosCC_ForeverNameplatesDB, NexosCC_ForeverNPEnabled, NexosCC_ForeverNPScale, NexosCC_ForeverNPQuickSizeLevel, NexosCC_ForeverNPCountdownTextSize, NexosCC_ForeverNPX, NexosCC_ForeverNPY, NexosCC_ForeverNPAnchorShown, NexosCC_ForeverNPQuickPoint, NexosCC_ForeverNPQuickX, NexosCC_ForeverNPQuickY, NexosCC_ForeverNPShowAllDebuffs, NexosCC_ForeverNPTargetOnly, NexosCC_ForeverNPFriendlyHots, NexosCC_ForeverNPFriendlyBuffs, NexosCC_ForeverNPFriendlyDebuffs, NexosCC_ForeverPlayerCCDB, NexosCC_ForeverTargetPortraitDB, NexosCC_ForeverSelfCooldownsDB, NexosCC_ForeverAuraQuickDB, NexosCC_ForeverMinimapDB, NexosCC_ForeverEnemyCDDB, NexosCC_ForeverActionAuraTimersDB, NexosCC_CooldownsOnly, NexosCC_CompatLastSelection
+## SavedVariablesPerCharacter: NexosCC_ForeverNameplatesCharDB
+## LoadSavedVariablesFirst: 1
+## IconTexture: Interface/AddOns/NexosCC/media/nexos_icon
+## Category: Combat
+
+core\bootstrap.lua
+core\color.lua
+core\formatter.lua
+core\rules.lua
+core\style.lua
+core\runtime.lua
+nexos_cooldown_ready.lua
+nexos_duration_binding.lua
+nexos_combo_points.lua
+nexos_enemy_cooldowns.lua
+forever\forever_threatplates_bridge.lua
+forever\forever_betterblizzplates_bridge.lua
+forever\forever_compatibility.lua
+forever\forever_action_aura_timers.lua
+forever\forever_aura_text_controls.lua
+forever\forever_spell_data.lua
+forever\forever_nameplate_auras.lua
+forever\forever_totem_icons.lua
+forever\forever_player_cc_alert.lua
+player_hot_tracker.lua
+forever\forever_self_cooldowns.lua
+forever\forever_player_frame_auras.lua
+forever\forever_target_portrait_effects.lua
+quick_controls_localization.lua
+forever\forever_minimap_quick_menu.lua
+forever\minimap_button.lua
+forever\forever_target_native_auras.lua
+forever\forever_target_aura_timers.lua
+forever\forever_focus_native_auras.lua

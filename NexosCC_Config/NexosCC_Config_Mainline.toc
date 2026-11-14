@@ -1,0 +1,21 @@
+## Interface: 120000, 120001, 120005, 120007, 120100, 120105, 120106, 120107
+## Title: NexosCC Config
+## Notes: NexosCC configuration interface
+## Author: Afredimorin
+## Version: 1.0.0
+## Dependencies: NexosCC
+## LoadOnDemand: 1
+## IconTexture: Interface/AddOns/NexosCC/media/nexos_icon
+config\localization\menu_enUS.lua
+config\localization\menu_deDE.lua
+config\localization\menu_esES.lua
+config\localization\menu_esMX.lua
+config\localization\menu_frFR.lua
+config\localization\menu_itIT.lua
+config\localization\menu_koKR.lua
+config\localization\menu_ptBR.lua
+config\localization\menu_ruRU.lua
+config\localization\menu_zhCN.lua
+config\localization\menu_zhTW.lua
+config\foundation.lua
+config\options.lua

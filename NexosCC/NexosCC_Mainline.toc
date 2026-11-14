@@ -1,0 +1,62 @@
+## Interface: 120000, 120001, 120005, 120007, 120100, 120105, 120106, 120107
+## Title: NexosCC
+## Notes: Independent cooldown countdown, nameplate aura and unit-frame timing controls
+## Author: Afredimorin
+## Version: 1.0.0
+## SavedVariables: NexosCCDB, NexosCC_ShowGameMenuButton, NexosCC_MidnightComboDB, NexosCC_ForeverComboDB, NexosCC_MidnightDB, NexosCC_MidnightNameplatesDB, NexosCC_NPEnabled, NexosCC_NPScale, NexosCC_NPQuickSizeLevel, NexosCC_NPX, NexosCC_NPY, NexosCC_NPAnchorShown, NexosCC_NPQuickPoint, NexosCC_NPQuickX, NexosCC_NPQuickY, NexosCC_MidnightPlayerCCDB, NexosCC_MidnightTargetPortraitDB, NexosCC_MidnightSelfCooldownsDB, NexosCC_MidnightActionAuraTimersDB, NexosCC_MidnightAuraQuickDB, NexosCC_ForeverDB, NexosCC_ForeverNameplatesDB, NexosCC_ForeverNPEnabled, NexosCC_ForeverNPScale, NexosCC_ForeverNPQuickSizeLevel, NexosCC_ForeverNPX, NexosCC_ForeverNPY, NexosCC_ForeverNPAnchorShown, NexosCC_ForeverNPQuickPoint, NexosCC_ForeverNPQuickX, NexosCC_ForeverNPQuickY, NexosCC_ForeverPlayerCCDB, NexosCC_ForeverTargetPortraitDB, NexosCC_ForeverSelfCooldownsDB, NexosCC_ForeverAuraQuickDB, NexosCC_ForeverMinimapDB, NexosCC_MidnightEnemyCDDB, NexosCC_ForeverEnemyCDDB, NexosCC_CooldownsOnly, NexosCC_MidnightCooldownModeDB, NexosCC_ForeverNPCountdownTextSize, NexosCC_ForeverNPShowAllDebuffs, NexosCC_ForeverNPTargetOnly, NexosCC_ForeverNPFriendlyHots, NexosCC_ForeverNPFriendlyBuffs, NexosCC_ForeverNPFriendlyDebuffs, NexosCC_CompatLastSelection
+## SavedVariablesPerCharacter: NexosCC_MidnightNameplatesCharDB, NexosCC_ForeverNameplatesCharDB
+## LoadSavedVariablesFirst: 1
+## IconTexture: Interface/AddOns/NexosCC/media/nexos_icon
+## Category: Combat
+
+midnight_cooldowns_only_bootstrap.lua
+core\bootstrap.lua
+core\color.lua
+core\formatter.lua
+core\rules.lua
+core\style.lua
+core\runtime.lua
+nexos_cooldown_ready.lua
+nexos_duration_binding.lua
+nexos_combo_points.lua
+nexos_enemy_cooldowns.lua
+
+# Forever branch hard-exits unless interface 16001.
+forever\forever_threatplates_bridge.lua
+forever\forever_betterblizzplates_bridge.lua
+forever\forever_compatibility.lua
+forever\forever_aura_text_controls.lua
+forever\forever_spell_data.lua
+forever\forever_nameplate_auras.lua
+forever\forever_totem_icons.lua
+forever\forever_player_cc_alert.lua
+forever\forever_self_cooldowns.lua
+forever\forever_player_frame_auras.lua
+forever\forever_target_portrait_effects.lua
+quick_controls_localization.lua
+forever\forever_minimap_quick_menu.lua
+forever\minimap_button.lua
+forever\forever_target_native_auras.lua
+forever\forever_focus_native_auras.lua
+# Forever action aura timers are intentionally excluded from Midnight.
+forever\forever_target_aura_timers.lua
+
+# Midnight branch hard-exits on interface 16001.
+midnight_threatplates_bridge.lua
+midnight_betterblizzplates_bridge.lua
+midnight_compatibility.lua
+midnight_aura_text_controls.lua
+midnight_spell_data.lua
+midnight_nameplate_auras.lua
+midnight_totem_icons.lua
+midnight_player_cc_alert.lua
+player_hot_tracker.lua
+midnight_self_cooldowns.lua
+midnight_player_frame_auras.lua
+midnight_action_aura_overlay.xml
+midnight_action_aura_timers.lua
+midnight_target_portrait_effects.lua
+midnight_minimap_quick_menu.lua
+minimap_button.lua
+midnight_target_aura_timers.lua
+midnight_focus_native_auras.lua
