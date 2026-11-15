@@ -1237,6 +1237,36 @@ local function setNativeCVar(name,value)
     if SetCVar then local ok=pcall(SetCVar,name,value); if ok then return true end end
     return false
 end
+-- Own only the enemy-player Debuffs bit. Blizzard's Buffs and Loss of
+-- Control settings share this CVar and must keep their current values.
+local function syncNativeEnemyPlayerDebuffs(release)
+    if inCombatLockdown() then return end
+    local constants = _G.NamePlateConstants
+    local name = constants and constants.ENEMY_PLAYER_AURA_DISPLAY_CVAR or 'nameplateEnemyPlayerAuraDisplay'
+    local display = Enum and Enum.NamePlateEnemyPlayerAuraDisplay
+    local index = display and display.Debuffs
+    local get = C_CVar and C_CVar.GetCVarBitfield or GetCVarBitfield
+    local set = C_CVar and C_CVar.SetCVarBitfield or SetCVarBitfield
+    if index == nil or not get or not set or not getNativeCVar(name) then return end
+    local ok, enabled = pcall(get, name, index)
+    if not ok or type(enabled) ~= 'boolean' then return end
+    local external = Addon.CompatibilityOwnsScope and Addon:CompatibilityOwnsScope('nameplates')
+    if not release and not external and db.enabled ~= false and _G.NexosCC_CooldownsOnly ~= true then
+        if enabled then
+            -- Record ownership before writing because CVAR_UPDATE can fire
+            -- synchronously. Retain the intent if a protected write is rejected.
+            db.nativeEnemyPlayerDebuffsPrior = true
+            pcall(set, name, index, false)
+        end
+    elseif db.nativeEnemyPlayerDebuffsPrior then
+        db.nativeEnemyPlayerDebuffsPrior = nil
+        if not enabled then
+            local restored, success = pcall(set, name, index, true)
+            if not restored or success == false then db.nativeEnemyPlayerDebuffsPrior = true end
+        end
+    end
+end
+
 local function syncNativeFriendlyPlayerAuraOwnership()
     local external = Addon.CompatibilityOwnsScope and Addon:CompatibilityOwnsScope('nameplates')
     local name = friendlyPlayerAuraCVarName()
@@ -1294,6 +1324,56 @@ local function restoreNativeNpcAuraCVar()
     end
 end
 
+-- Blizzard native AuraFrame lists, when available, are separate from NexosCC's
+-- UIParent-owned renderer. Suppress only these exact native lists when NexosCC
+-- owns nameplates; never walk/hide the parent UnitFrame or NexosCC containers.
+local nativeAuraLists = setmetatable({}, {__mode='k'})
+local nativeAuraGuard = setmetatable({}, {__mode='k'})
+local function enforceNativeAuraHidden(row)
+    if not nativeAuraLists[row] or nativeAuraGuard[row] or isForbiddenObject(row) then return end
+    nativeAuraGuard[row] = true
+    -- Blizzard's aura refresh can set alpha back to 1 after the nameplate bind.
+    -- Keep its own list transparent without hiding the parent or NexosCC row.
+    pcall(row.SetAlpha, row, 0)
+    nativeAuraGuard[row] = nil
+end
+local function syncBlizzardNativeAuraLists(plate, own)
+    local uf = plate and (plate.UnitFrame or plate.unitFrame)
+    local auras = uf and uf.AurasFrame
+    if not auras then return end
+    for _,key in ipairs({'BuffListFrame','DebuffListFrame','CrowdControlListFrame'}) do
+        local row = auras[key]
+        if row and not isForbiddenObject(row) then
+            local state = nativeAuraLists[row]
+            if own then
+                if not state then
+                    local ok, alpha = pcall(row.GetAlpha,row)
+                    state = {alpha=ok and alpha or 1, hooked=false}
+                    nativeAuraLists[row] = state
+                    -- Hook once per recycled Blizzard row. Blizzard can repaint
+                    -- these rows AFTER NAME_PLATE_UNIT_ADDED; a one-shot SetAlpha
+                    -- is not persistent and caused the reported duplicates.
+                    if hooksecurefunc then
+                        pcall(hooksecurefunc,row,'SetAlpha',function(self)
+                            enforceNativeAuraHidden(self)
+                        end)
+                        -- Blizzard can Show() a recycled list without calling
+                        -- SetAlpha. Keep only the native list transparent; never
+                        -- hide or rebuild the owning nameplate or NexosCC row.
+                        pcall(hooksecurefunc,row,'Show',function(self)
+                            enforceNativeAuraHidden(self)
+                        end)
+                    end
+                end
+                enforceNativeAuraHidden(row)
+            elseif state then
+                nativeAuraLists[row]=nil
+                if row.SetAlpha then pcall(row.SetAlpha,row,state.alpha) end
+            end
+        end
+    end
+end
+
 local function stylePlate(plate)
     if not plate then return end
 
@@ -1316,6 +1396,11 @@ local function stylePlate(plate)
     -- Plater independent; with Plater Nameplates released we restore everything;
     -- only NexosCC-owned Plater nameplate auras are suppressed.  Friendly rows
     -- remain untouched as before.
+    -- Keep Blizzard's native aura lists hidden only while NexosCC owns this plate.
+    -- The guards are no-ops on Forever clients without AurasFrame list children.
+    local externalOwner = Addon.CompatibilityOwnsScope and Addon:CompatibilityOwnsScope('nameplates')
+    local nexosOwns = db.enabled ~= false and not externalOwner
+    syncBlizzardNativeAuraLists(plate, nexosOwns)
     local platerMode=platerCompatibilityMode()
     if platerMode ~= 'nexos' or (unit and UnitIsFriend('player',unit)) then
         restoreSuppressedNameplateAuras(plate)
@@ -1370,6 +1455,7 @@ local function _nxcDrainFullRefresh()
     _nxcFullRefreshRetry = false
 end
 local function refreshAll()
+    syncNativeEnemyPlayerDebuffs()
     if not C_NamePlate or not C_NamePlate.GetNamePlates then return end
     -- A new request while the sweep is pending is already covered by its
     -- snapshot.  Direct per-unit events still update live aura visibility.
@@ -3074,6 +3160,13 @@ events:SetScript("OnEvent", function(_, event, unit)
             end
         elseif cvarName:lower() == tostring(friendlyPlayerAuraCVarName()):lower() and not inCombatLockdown() then
             syncNativeFriendlyPlayerAuraOwnership()
+        elseif cvarName:lower() == 'nameplateenemynpcauradisplay' and not inCombatLockdown() then
+            -- Other UI components can restore Blizzard's native NPC aura row
+            -- after our own row has been bound. Reassert single-renderer ownership
+            -- on the actual CVar change, not in an OnUpdate polling loop.
+            syncNativeNpcAuraOwnership()
+        elseif cvarName:lower() == 'nameplateenemyplayerauradisplay' then
+            syncNativeEnemyPlayerDebuffs()
         end
         return
     elseif event == "UNIT_AURA" then
@@ -3140,12 +3233,18 @@ events:SetScript("OnEvent", function(_, event, unit)
         -- the checkbox state loaded correctly, but the containers kept their
         -- creation-time ALL-player filter until the user toggled the option.
         if applyDebuffSourceMode then applyDebuffSourceMode() end
+        -- Claim native NPC aura display before the first nameplate bind. The
+        -- previous path waited until combat ended or a delayed login callback.
+        syncNativeNpcAuraOwnership()
+        syncNativeFriendlyPlayerAuraOwnership()
+        syncNativeEnemyPlayerDebuffs()
         C_Timer.After(0, function()
             if applyDebuffSourceMode then applyDebuffSourceMode() end
             refreshAll()
         end)
         return
     elseif event == "PLAYER_REGEN_ENABLED" then
+        syncNativeEnemyPlayerDebuffs()
         syncNativeNpcAuraOwnership()
         syncNativeFriendlyPlayerAuraOwnership()
         if pendingCombatRefresh then
@@ -3158,6 +3257,8 @@ events:SetScript("OnEvent", function(_, event, unit)
         end
         return
     elseif event == "PLAYER_LOGOUT" then
+        events:UnregisterEvent("CVAR_UPDATE")
+        syncNativeEnemyPlayerDebuffs(true)
         persist()
         return
     elseif event == "NAME_PLATE_UNIT_ADDED" and C_NamePlate and C_NamePlate.GetNamePlateForUnit then
@@ -3168,6 +3269,10 @@ events:SetScript("OnEvent", function(_, event, unit)
     else
         C_Timer.After(0, refreshAll)
         if event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
+            -- Restore the single-renderer contract immediately on world entry,
+            -- including reloads where Blizzard has reset its nameplate CVar.
+            syncNativeNpcAuraOwnership()
+            syncNativeFriendlyPlayerAuraOwnership()
             -- Some UI/nameplate layouts finish one frame later on /reload.
             -- One final bounded pass guarantees that the exact SavedVariables
             -- font/font-size/outline wins after every reload.
@@ -3550,14 +3655,14 @@ _G.NexosCC.ForeverNameplates = Addon.ForeverNameplates
 Addon.ForeverNameplates = Addon.ForeverNameplates or {}
 _G.NexosCC_Nameplates = Addon.ForeverNameplates
 
-local function NXC_GetForeverNPDB()
+function Addon.ForeverNameplates.GetForeverNPDB()
     NexosCC_ForeverNameplatesDB = NexosCC_ForeverNameplatesDB or {}
     return NexosCC_ForeverNameplatesDB
 end
 
 -- NXC_STARTUP_ANCHOR_HIDE_GUARD
-local _nxcStartupAnchorGuard = CreateFrame('Frame')
-local function NXC_ApplyForeverSavedNameplateState()
+Addon.ForeverNameplates.startupAnchorGuard = CreateFrame('Frame')
+function Addon.ForeverNameplates.ApplySavedNameplateState()
     -- Re-apply saved state after PLAYER_LOGIN / entering world. Fresh installs
     -- default to 6/10, while existing users keep their chosen value.
     if persistenceReady then
@@ -3572,17 +3677,17 @@ local function NXC_ApplyForeverSavedNameplateState()
     db.anchorShown = false
     if anchor then anchor:Hide() end
 end
-_nxcStartupAnchorGuard:RegisterEvent('PLAYER_LOGIN')
-_nxcStartupAnchorGuard:RegisterEvent('PLAYER_ENTERING_WORLD')
-_nxcStartupAnchorGuard:SetScript('OnEvent', function()
-    NXC_ApplyForeverSavedNameplateState()
+Addon.ForeverNameplates.startupAnchorGuard:RegisterEvent('PLAYER_LOGIN')
+Addon.ForeverNameplates.startupAnchorGuard:RegisterEvent('PLAYER_ENTERING_WORLD')
+Addon.ForeverNameplates.startupAnchorGuard:SetScript('OnEvent', function()
+    Addon.ForeverNameplates.ApplySavedNameplateState()
 end)
 
 
 -- NXC_TARGET_ANCHOR_FOLLOWER
-local _nxcTargetAnchorFollower = CreateFrame("Frame")
-_nxcTargetAnchorFollower:RegisterEvent("PLAYER_TARGET_CHANGED")
-_nxcTargetAnchorFollower:SetScript("OnEvent", function()
+Addon.ForeverNameplates.targetAnchorFollower = CreateFrame("Frame")
+Addon.ForeverNameplates.targetAnchorFollower:RegisterEvent("PLAYER_TARGET_CHANGED")
+Addon.ForeverNameplates.targetAnchorFollower:SetScript("OnEvent", function()
     if db.anchorShown then
         updateAnchor()
     end
@@ -3590,6 +3695,6 @@ end)
 
 -- Never leave Blizzard's persistent native nameplate-aura CVar disabled after
 -- a normal logout/reload. This makes uninstall-after-exit safe.
-local __nxcCVarRestore=CreateFrame('Frame')
-__nxcCVarRestore:RegisterEvent('PLAYER_LOGOUT')
-__nxcCVarRestore:SetScript('OnEvent',function() restoreNativeNpcAuraCVar(); restoreNativeFriendlyPlayerAuraCVar() end)
+Addon.ForeverNameplates.cvarRestoreFrame=CreateFrame('Frame')
+Addon.ForeverNameplates.cvarRestoreFrame:RegisterEvent('PLAYER_LOGOUT')
+Addon.ForeverNameplates.cvarRestoreFrame:SetScript('OnEvent',function() restoreNativeNpcAuraCVar(); restoreNativeFriendlyPlayerAuraCVar() end)

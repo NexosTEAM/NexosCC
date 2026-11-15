@@ -462,14 +462,12 @@ local function buildGeneralPanel(panel)
         function() return _G.NexosCC_ShowGameMenuButton ~= false end,
         function(v)
             _G.NexosCC_ShowGameMenuButton = not not v
-            local b=_G.NexosCCGameMenuButton
-            if b and not v then b:Hide() end
-            -- Reopening the ESC menu runs its existing positioning hook.
+            if NexosCC.RefreshGameMenuButton then NexosCC.RefreshGameMenuButton() end
         end)
     local loc=createCheckbox(panel,gameMenu,GML('Show Blizzard Lost of Control icon (center screen)'),getLossOfControlShown,setLossOfControlShown)
 
     local hint = createText(panel, loc,
-        GML("The Lost of Control switch uses Blizzard's native Edit Mode account setting, so NexosCC does not insecurely hide a protected combat frame.") .. '\n\n' .. GML('Commands:') .. ' /nxc, /nexoscc, /ncc, /nxcminimap show|hide|toggle')
+        GML("The Lost of Control switch uses Blizzard's native Edit Mode account setting, so NexosCC does not insecurely hide a protected combat frame.") .. '\n\n' .. GML('Commands:') .. ' /nxc, /nexoscc, /ncc\n/nxcminimap show, /nxcminimap hide, /nxcminimap toggle')
     hint:SetTextColor(0.75, 0.75, 0.75)
 end
 
@@ -1890,7 +1888,7 @@ local function buildMoreNexosPanel(panel)
     local bugButton = linkButton(bugText, 'https://www.curseforge.com/wow/addons/nexos-bugcollector')
     local spyTitle = paragraph(bugButton, '|cffffd200Spy NexosCC|r', 25)
     local spyText = paragraph(spyTitle, 'Want to know when enemy players are nearby? Spy NexosCC helps detect nearby hostile players, maintain a Kill on Sight list, and provide configurable warnings on supported clients.', 8)
-    local spyButton = linkButton(spyText, 'https://www.curseforge.com/wow/addons/spy-god-mode')
+    local spyButton = linkButton(spyText, 'https://www.curseforge.com/wow/search?page=1&pageSize=20&sortBy=relevancy&class=addons&search=Spy%20NexosCC')
     local gtfoTitle = paragraph(spyButton, '|cffffd200NexosCC Hazard Alerts|r', 25)
     local gtfoText = paragraph(gtfoTitle, 'Avoid dangerous ground effects and environmental hazards with visual and sound warnings during combat.', 8)
     local gtfoButton = linkButton(gtfoText, 'https://www.curseforge.com/wow/search?page=1&pageSize=20&sortBy=relevancy&class=addons&search=NexosCC%20Hazard%20Alerts')

@@ -194,9 +194,8 @@ local function RefreshPortraitCooldownTree(frame, depth, seen)
 end
 function Module:RefreshThemeAppearance()
  local seen={}
- for _,container in ipairs({baseContainer,ccContainer}) do
-  RefreshPortraitCooldownTree(container,0,seen)
- end
+ RefreshPortraitCooldownTree(baseContainer,0,seen)
+ RefreshPortraitCooldownTree(ccContainer,0,seen)
  if testCD then ApplyPortraitCountdownTheme(testCD) end
 end
 

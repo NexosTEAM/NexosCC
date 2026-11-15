@@ -1282,6 +1282,36 @@ local function setNativeCVar(name,value)
     if SetCVar then local ok=pcall(SetCVar,name,value); if ok then return true end end
     return false
 end
+-- Own only the enemy-player Debuffs bit. Blizzard's Buffs and Loss of
+-- Control settings share this CVar and must keep their current values.
+local function syncNativeEnemyPlayerDebuffs(release)
+    if inCombatLockdown() then return end
+    local constants = _G.NamePlateConstants
+    local name = constants and constants.ENEMY_PLAYER_AURA_DISPLAY_CVAR or 'nameplateEnemyPlayerAuraDisplay'
+    local display = Enum and Enum.NamePlateEnemyPlayerAuraDisplay
+    local index = display and display.Debuffs
+    local get = C_CVar and C_CVar.GetCVarBitfield or GetCVarBitfield
+    local set = C_CVar and C_CVar.SetCVarBitfield or SetCVarBitfield
+    if index == nil or not get or not set or not getNativeCVar(name) then return end
+    local ok, enabled = pcall(get, name, index)
+    if not ok or type(enabled) ~= 'boolean' then return end
+    local external = Addon.CompatibilityOwnsScope and Addon:CompatibilityOwnsScope('nameplates')
+    if not release and not external and db.enabled ~= false and _G.NexosCC_CooldownsOnly ~= true then
+        if enabled then
+            -- Record ownership before writing because CVAR_UPDATE can fire
+            -- synchronously. Retain the intent if a protected write is rejected.
+            db.nativeEnemyPlayerDebuffsPrior = true
+            pcall(set, name, index, false)
+        end
+    elseif db.nativeEnemyPlayerDebuffsPrior then
+        db.nativeEnemyPlayerDebuffsPrior = nil
+        if not enabled then
+            local restored, success = pcall(set, name, index, true)
+            if not restored or success == false then db.nativeEnemyPlayerDebuffsPrior = true end
+        end
+    end
+end
+
 local function syncNativeFriendlyPlayerAuraOwnership()
     local external = Addon.CompatibilityOwnsScope and Addon:CompatibilityOwnsScope('nameplates')
     local name = friendlyPlayerAuraCVarName()
@@ -1353,7 +1383,7 @@ local function enforceNativeAuraHidden(row)
     nativeAuraGuard[row] = nil
 end
 local function syncBlizzardNativeAuraLists(plate, own)
-    local uf = plate and plate.UnitFrame
+    local uf = plate and (plate.UnitFrame or plate.unitFrame)
     local auras = uf and uf.AurasFrame
     if not auras then return end
     for _,key in ipairs({'BuffListFrame','DebuffListFrame','CrowdControlListFrame'}) do
@@ -1470,6 +1500,7 @@ local function _nxcDrainFullRefresh()
     _nxcFullRefreshRetry = false
 end
 local function refreshAll()
+    syncNativeEnemyPlayerDebuffs()
     if not C_NamePlate or not C_NamePlate.GetNamePlates then return end
     -- A new request while the sweep is pending is already covered by its
     -- snapshot.  Direct per-unit events still update live aura visibility.
@@ -3194,6 +3225,8 @@ events:SetScript("OnEvent", function(_, event, unit)
             syncNativeNpcAuraOwnership()
         elseif cvarName:lower() == tostring(friendlyPlayerAuraCVarName()):lower() and not inCombatLockdown() then
             syncNativeFriendlyPlayerAuraOwnership()
+        elseif cvarName:lower() == 'nameplateenemyplayerauradisplay' then
+            syncNativeEnemyPlayerDebuffs()
         end
         return
     elseif event == "UNIT_AURA" then
@@ -3255,6 +3288,7 @@ events:SetScript("OnEvent", function(_, event, unit)
         -- rather than waiting for PLAYER_ENTERING_WORLD's delayed pass.
         syncNativeNpcAuraOwnership()
         syncNativeFriendlyPlayerAuraOwnership()
+        syncNativeEnemyPlayerDebuffs()
         updateAnchor()
         quick:ClearAllPoints()
         quick:SetPoint(db.quickPoint or "CENTER", UIParent, db.quickPoint or "CENTER", tonumber(db.quickX) or 0, tonumber(db.quickY) or 0)
@@ -3270,6 +3304,7 @@ events:SetScript("OnEvent", function(_, event, unit)
         end)
         return
     elseif event == "PLAYER_REGEN_ENABLED" then
+        syncNativeEnemyPlayerDebuffs()
         syncNativeNpcAuraOwnership()
         syncNativeFriendlyPlayerAuraOwnership()
         if pendingCombatRefresh then
@@ -3282,6 +3317,8 @@ events:SetScript("OnEvent", function(_, event, unit)
         end
         return
     elseif event == "PLAYER_LOGOUT" then
+        events:UnregisterEvent("CVAR_UPDATE")
+        syncNativeEnemyPlayerDebuffs(true)
         persist()
         return
     elseif event == "NAME_PLATE_UNIT_ADDED" and C_NamePlate and C_NamePlate.GetNamePlateForUnit then
